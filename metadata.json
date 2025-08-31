@@ -1,0 +1,5 @@
+{
+  "name": "GameSave Studio",
+  "description": "A modern, web-based game save editor that allows users to easily upload, edit, and download save files for various game genres. Features a clean, dark-mode interface with specialized editors for RPG stats, inventory, and visual novel story flags.",
+  "requestFramePermissions": []
+}
