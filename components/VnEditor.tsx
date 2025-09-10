@@ -37,11 +37,13 @@ export const VnEditor: React.FC<VnEditorProps> = ({ data, onChange }) => {
         <div className="bg-gray-700/50 p-4 rounded-lg">
             <div>
                 <label htmlFor="playerName" className="text-sm text-gray-400">Player Name</label>
-                <input id="playerName" type="text" value={data.playerName || ''} onChange={e => handleFieldChange('playerName', e.target.value)} className="w-full mt-1 bg-gray-900/50 border border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                {/* FIX: Use nullish coalescing operator to avoid treating valid falsy values like empty strings incorrectly. */}
+                <input id="playerName" type="text" value={data.playerName ?? ''} onChange={e => handleFieldChange('playerName', e.target.value)} className="w-full mt-1 bg-gray-900/50 border border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div className="mt-4">
                 <label htmlFor="currentScene" className="text-sm text-gray-400">Current Scene ID</label>
-                <input id="currentScene" type="text" value={data.currentSceneId || ''} onChange={e => handleFieldChange('currentSceneId', e.target.value)} className="w-full mt-1 bg-gray-900/50 border border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                {/* FIX: Use nullish coalescing operator to avoid treating valid falsy values like 0 incorrectly and fix typing error. */}
+                <input id="currentScene" type="text" value={data.currentSceneId ?? ''} onChange={e => handleFieldChange('currentSceneId', e.target.value)} className="w-full mt-1 bg-gray-900/50 border border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
         </div>
         <div className="bg-gray-700/50 p-4 rounded-lg">

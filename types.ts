@@ -1,6 +1,6 @@
-
 export enum GameType {
   RPG = 'RPG',
+  RPG_MAKER_MV = 'RPG_MAKER_MV',
   VISUAL_NOVEL = 'VISUAL_NOVEL',
   UNKNOWN = 'UNKNOWN',
 }
@@ -11,41 +11,38 @@ export interface GameSave {
   data: any;
 }
 
-// RPG Data Structures
+// FIX: Added missing type definitions for RPG and Visual Novel editors.
 export interface RpgCharacter {
-  id: number;
+  id: number | string;
   name: string;
   level: number;
   hp: number;
-  maxHp: number;
   mp: number;
-  maxMp: number;
   strength: number;
   agility: number;
   intelligence: number;
 }
 
 export interface InventoryItem {
-  id: number;
+  id: number | string;
   name: string;
   quantity: number;
 }
 
 export interface Skill {
-  id: number;
+  id: number | string;
   name: string;
   description: string;
   learned: boolean;
 }
 
 export interface RpgData {
-  characters: RpgCharacter[];
-  inventory: InventoryItem[];
-  skills: Skill[];
-  gold: number;
+  characters?: RpgCharacter[];
+  inventory?: InventoryItem[];
+  skills?: Skill[];
+  gold?: number;
 }
 
-// Visual Novel Data Structures
 export interface StoryFlag {
   id: string;
   description: string;
@@ -53,8 +50,8 @@ export interface StoryFlag {
 }
 
 export interface VnData {
-  currentSceneId: string;
-  playerName: string;
-  loveInterestPoints: { [key: string]: number };
-  storyFlags: StoryFlag[];
+  playerName?: string;
+  currentSceneId?: string;
+  loveInterestPoints?: { [characterName: string]: number };
+  storyFlags?: StoryFlag[];
 }

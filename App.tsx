@@ -1,68 +1,62 @@
-
 import React, { useState, useCallback } from 'react';
 import { HomePage } from './components/HomePage';
 import { EditorLayout } from './components/EditorLayout';
 import { GenericJsonEditor } from './components/GenericJsonEditor';
-import type { GameSave } from './types';
+import { FileParseError } from './components/FileParseError';
 import { GameType } from './types';
-import { getGameType, generateMockData } from './utils/fileUtils';
+import { getGameType, parseSaveFile, downloadFile } from './utils/fileUtils';
 
 const App: React.FC = () => {
-  const [gameSave, setGameSave] = useState<GameSave | null>(null);
+  const [gameSave, setGameSave] = useState<{ file: File; type: GameType; rawData: any; } | null>(null);
+  const [parseError, setParseError] = useState<File | null>(null);
 
-  const handleFileAccepted = useCallback((file: File) => {
-    const gameType = getGameType(file.name);
-    // Even if the type is unknown, we can still try to parse it as JSON
-    // if (gameType === GameType.UNKNOWN) {
-    //   alert("Unsupported file type. Please upload a supported game save file.");
-    //   return;
-    // }
-
-    const reader = new FileReader();
-
-    reader.onload = (event) => {
-      try {
-        if (typeof event.target?.result !== 'string') {
-          throw new Error("Failed to read file as text.");
-        }
-        const parsedData = JSON.parse(event.target.result);
-        setGameSave({ file, type: gameType, data: parsedData });
-      } catch (error) {
-        console.error("Error parsing save file:", error);
-        alert("Could not read the save file as JSON. It might be in an unsupported format or corrupted. Displaying sample data instead.");
-        // Fallback to mock data if parsing fails
-        const mockData = generateMockData(gameType !== GameType.UNKNOWN ? gameType : GameType.RPG); // Default to RPG mock
-        setGameSave({ file, type: gameType, data: mockData });
-      }
-    };
-
-    reader.onerror = () => {
-      console.error("FileReader error.");
-      alert("An error occurred while reading the file. Displaying sample data instead.");
-      const mockData = generateMockData(gameType !== GameType.UNKNOWN ? gameType : GameType.RPG);
-      setGameSave({ file, type: gameType, data: mockData });
-    };
-
-    reader.readAsText(file);
+  const handleFileAccepted = useCallback(async (file: File) => {
+    setParseError(null);
+    setGameSave(null);
+    
+    try {
+      const parsedData = await parseSaveFile(file);
+      const gameType = getGameType(file.name);
+      setGameSave({ file, type: gameType, rawData: parsedData });
+    } catch (error) {
+      console.error("Error parsing save file:", error);
+      setParseError(file);
+    }
   }, []);
 
   const handleDataChange = (updatedData: any) => {
-    if (gameSave) {
-      setGameSave({ ...gameSave, data: updatedData });
-    }
+    if (!gameSave) return;
+    setGameSave({ ...gameSave, rawData: updatedData });
   };
 
   const handleGoBack = () => {
     setGameSave(null);
+    setParseError(null);
   };
+  
+  const handleDownload = () => {
+    if (gameSave) {
+        downloadFile(gameSave.rawData, gameSave.file, gameSave.type);
+        alert(`Your edited save data is being downloaded. You can re-upload the edited file to continue editing.`);
+    }
+  };
+
+  if (parseError) {
+    return <FileParseError fileName={parseError.name} onGoBack={handleGoBack} />;
+  }
 
   if (!gameSave) {
     return <HomePage onFileAccepted={handleFileAccepted} />;
   }
 
   return (
-    <EditorLayout gameSave={gameSave} onGoBack={handleGoBack}>
-      <GenericJsonEditor data={gameSave.data} onChange={handleDataChange} />
+    <EditorLayout 
+      file={gameSave.file}
+      type={gameSave.type}
+      onGoBack={handleGoBack}
+      onDownload={handleDownload}
+    >
+      <GenericJsonEditor data={gameSave.rawData} onChange={handleDataChange} />
     </EditorLayout>
   );
 };
