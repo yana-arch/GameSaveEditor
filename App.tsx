@@ -2,12 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { HomePage } from './components/HomePage';
 import { EditorLayout } from './components/EditorLayout';
 import { GenericJsonEditor } from './components/GenericJsonEditor';
+import { RpgEditor } from './components/RpgEditor';
+import { VnEditor } from './components/VnEditor';
 import { FileParseError } from './components/FileParseError';
-import { GameType } from './types';
+import { GameType, SaveFileFormat } from './types';
 import { getGameType, parseSaveFile, downloadFile } from './utils/fileUtils';
 
 const App: React.FC = () => {
-  const [gameSave, setGameSave] = useState<{ file: File; type: GameType; rawData: any; } | null>(null);
+  const [gameSave, setGameSave] = useState<{ file: File; type: GameType; rawData: any; format: SaveFileFormat; } | null>(null);
   const [parseError, setParseError] = useState<File | null>(null);
 
   const handleFileAccepted = useCallback(async (file: File) => {
@@ -15,9 +17,9 @@ const App: React.FC = () => {
     setGameSave(null);
     
     try {
-      const parsedData = await parseSaveFile(file);
+      const { data: parsedData, format } = await parseSaveFile(file);
       const gameType = getGameType(file.name);
-      setGameSave({ file, type: gameType, rawData: parsedData });
+      setGameSave({ file, type: gameType, rawData: parsedData, format });
     } catch (error) {
       console.error("Error parsing save file:", error);
       setParseError(file);
@@ -36,8 +38,24 @@ const App: React.FC = () => {
   
   const handleDownload = () => {
     if (gameSave) {
-        downloadFile(gameSave.rawData, gameSave.file, gameSave.type);
+        downloadFile(gameSave.rawData, gameSave.file, gameSave.type, gameSave.format);
         alert(`Your edited save data is being downloaded. You can re-upload the edited file to continue editing.`);
+    }
+  };
+
+  const renderEditor = () => {
+    if (!gameSave) {
+      return null;
+    }
+
+    switch (gameSave.type) {
+      case GameType.RPG:
+      case GameType.RPG_MAKER_MV:
+        return <RpgEditor data={gameSave.rawData} onChange={handleDataChange} />;
+      case GameType.VISUAL_NOVEL:
+        return <VnEditor data={gameSave.rawData} onChange={handleDataChange} />;
+      default:
+        return <GenericJsonEditor data={gameSave.rawData} onChange={handleDataChange} />;
     }
   };
 
@@ -56,7 +74,7 @@ const App: React.FC = () => {
       onGoBack={handleGoBack}
       onDownload={handleDownload}
     >
-      <GenericJsonEditor data={gameSave.rawData} onChange={handleDataChange} />
+      {renderEditor()}
     </EditorLayout>
   );
 };

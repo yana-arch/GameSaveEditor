@@ -14,10 +14,7 @@ export const FileParseError: React.FC<FileParseErrorProps> = ({ fileName, onGoBa
         <h3 className="text-2xl font-bold text-white mb-2">Error Parsing File</h3>
         <p className="font-mono text-sm text-red-300 bg-red-900/50 px-2 py-1 rounded mb-4 break-all">{fileName}</p>
         <p className="max-w-md text-gray-400">
-          This file could not be read as valid JSON. It is likely in an unsupported binary format or is corrupted.
-        </p>
-        <p className="mt-2 text-gray-400">
-          This editor can only open save files that are stored in a plain text JSON format.
+          This file could not be read. While this editor supports many JSON-based formats (including compressed variations), this particular file appears to be in an unsupported format or is corrupted.
         </p>
         <button
           onClick={onGoBack}

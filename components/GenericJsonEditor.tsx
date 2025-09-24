@@ -127,8 +127,10 @@ const JsonNode: React.FC<JsonNodeProps> = ({ nodeKey, value, path, onValueChange
                     onValueChange={onValueChange}
                     searchTerm={searchTerm}
                     handleDeleteItem={Array.isArray(value) ? () => {
-                        const newArray = (value as JsonValue[]).filter((_, i) => i !== parseInt(key, 10));
-                        onValueChange(path, newArray);
+                        if (window.confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+                            const newArray = (value as JsonValue[]).filter((_, i) => i !== parseInt(key, 10));
+                            onValueChange(path, newArray);
+                        }
                     } : undefined}
                 />
              );

@@ -5,6 +5,15 @@ export enum GameType {
   UNKNOWN = 'UNKNOWN',
 }
 
+export enum SaveFileFormat {
+  JSON = 'JSON',
+  BASE64_JSON = 'BASE64_JSON',
+  LZ_STRING_BASE64_JSON = 'LZ_STRING_BASE64_JSON',
+  LZ_STRING_RAW_JSON = 'LZ_STRING_RAW_JSON',
+  ZLIB_JSON = 'ZLIB_JSON',
+  BASE64_ZLIB_JSON = 'BASE64_ZLIB_JSON',
+}
+
 export interface GameSave {
   file: File;
   type: GameType;
