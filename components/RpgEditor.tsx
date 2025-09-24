@@ -1,8 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import type { RpgData, RpgCharacter, InventoryItem, Skill } from '../types';
 import { EmptyEditorState } from './EmptyEditorState';
 import { GenericJsonEditor } from './GenericJsonEditor';
 import { setAtPath } from '../utils/jsonUtils';
+import { useAiConfig } from '../context/AiConfigContext';
+import { AiConfigManager } from './AiConfigManager';
+
+const GeminiHelper = lazy(() => import('./Gemini'));
 
 interface RpgEditorProps {
   data: any; // Raw data from file
@@ -54,7 +58,7 @@ const normalizeRpgData = (rawData: any): RpgData => {
 };
 
 
-type EditorTab = 'characters' | 'inventory' | 'skills' | 'all_data';
+type EditorTab = 'characters' | 'inventory' | 'skills' | 'gemini_helper' | 'all_data';
 
 const StatInput: React.FC<{ label: string; value: number; onChange: (val: number) => void; }> = ({ label, value, onChange }) => (
     <div className="flex flex-col">
@@ -70,6 +74,7 @@ const StatInput: React.FC<{ label: string; value: number; onChange: (val: number
 export const RpgEditor: React.FC<RpgEditorProps> = ({ data: rawData, onChange: onRawChange }) => {
   const normalizedData = useMemo(() => normalizeRpgData(rawData), [rawData]);
   const { characters = [], inventory = [], skills = [] } = normalizedData;
+  const { activeConfig } = useAiConfig();
 
   const hasCharacters = characters.length > 0;
   const hasInventory = inventory.length > 0 || normalizedData.gold !== undefined;
@@ -169,6 +174,7 @@ export const RpgEditor: React.FC<RpgEditorProps> = ({ data: rawData, onChange: o
           {hasCharacters && <button onClick={() => setActiveTab('characters')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'characters' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Characters</button>}
           {hasInventory && <button onClick={() => setActiveTab('inventory')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'inventory' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Inventory</button>}
           {hasSkills && <button onClick={() => setActiveTab('skills')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'skills' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Skills</button>}
+          <button onClick={() => setActiveTab('gemini_helper')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'gemini_helper' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Gemini Helper</button>
           <button onClick={() => setActiveTab('all_data')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'all_data' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>All Data</button>
         </nav>
       </div>
@@ -231,9 +237,20 @@ export const RpgEditor: React.FC<RpgEditorProps> = ({ data: rawData, onChange: o
           ))}
         </div>
       )}
+
+      {activeTab === 'gemini_helper' && (
+        <Suspense fallback={<div className="text-center p-8 text-gray-400">Loading AI Helper...</div>}>
+            <GeminiHelper rpgData={normalizedData} apiKey={activeConfig?.apiKey} />
+        </Suspense>
+      )}
       
       {activeTab === 'all_data' && (
-        <GenericJsonEditor data={rawData} onChange={onRawChange} />
+        <>
+            <div className="mb-6">
+                <AiConfigManager />
+            </div>
+            <GenericJsonEditor data={rawData} onChange={onRawChange} />
+        </>
       )}
 
     </div>

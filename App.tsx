@@ -7,6 +7,7 @@ import { VnEditor } from './components/VnEditor';
 import { FileParseError } from './components/FileParseError';
 import { GameType, SaveFileFormat } from './types';
 import { getGameType, parseSaveFile, downloadFile } from './utils/fileUtils';
+import { AiConfigProvider } from './context/AiConfigContext';
 
 const App: React.FC = () => {
   const [gameSave, setGameSave] = useState<{ file: File; type: GameType; rawData: any; format: SaveFileFormat; } | null>(null);
@@ -68,14 +69,16 @@ const App: React.FC = () => {
   }
 
   return (
-    <EditorLayout 
-      file={gameSave.file}
-      type={gameSave.type}
-      onGoBack={handleGoBack}
-      onDownload={handleDownload}
-    >
-      {renderEditor()}
-    </EditorLayout>
+    <AiConfigProvider>
+        <EditorLayout 
+          file={gameSave.file}
+          type={gameSave.type}
+          onGoBack={handleGoBack}
+          onDownload={handleDownload}
+        >
+          {renderEditor()}
+        </EditorLayout>
+    </AiConfigProvider>
   );
 };
 
