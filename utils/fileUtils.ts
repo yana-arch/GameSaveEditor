@@ -4,6 +4,8 @@ import { GameType, SaveFileFormat } from '../types';
 declare const LZString: any;
 // Let TypeScript know that pako is available globally from the script tag in index.html
 declare const pako: any;
+// Let TypeScript know that msgpack is available globally from the script tag in index.html
+declare const msgpack: any;
 
 const RPG_MAKER_MV_EXTENSIONS = ['.rpgsave'];
 const RPG_EXTENSIONS = ['.rvdata2', '.rvdata', '.rxdata', '.lsd', '.sav', '.save', '.rsv'];
@@ -124,7 +126,19 @@ export const parseSaveFile = async (file: File): Promise<{ data: any, format: Sa
         } catch (e) { /* continue */ }
     }
 
-    throw new Error(`Could not parse file. It's not valid JSON or Base64-encoded JSON. The file format may be unsupported.`);
+    // Attempt 6: MessagePack
+    if (typeof msgpack !== 'undefined') {
+        try {
+            const uint8array = new Uint8Array(arrayBuffer);
+            const data = msgpack.decode(uint8array);
+            if (typeof data === 'object' && data !== null) {
+                 return { data, format: SaveFileFormat.MESSAGEPACK_JSON };
+            }
+        } catch(e) { /* continue */ }
+    }
+
+
+    throw new Error(`Could not parse file. The file format is unsupported or the file is corrupted.`);
 };
 
 
@@ -172,6 +186,10 @@ export const downloadFile = (data: any, originalFile: File, gameType: GameType, 
         case SaveFileFormat.BASE64_JSON:
             fileContent = btoa(JSON.stringify(data, null, 2));
             mimeType = 'text/plain';
+            break;
+        case SaveFileFormat.MESSAGEPACK_JSON:
+            fileContent = msgpack.encode(data);
+            mimeType = 'application/octet-stream';
             break;
         case SaveFileFormat.JSON:
         default:

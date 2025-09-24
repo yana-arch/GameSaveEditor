@@ -12,6 +12,7 @@ export enum SaveFileFormat {
   LZ_STRING_RAW_JSON = 'LZ_STRING_RAW_JSON',
   ZLIB_JSON = 'ZLIB_JSON',
   BASE64_ZLIB_JSON = 'BASE64_ZLIB_JSON',
+  MESSAGEPACK_JSON = 'MESSAGEPACK_JSON',
 }
 
 export interface GameSave {
