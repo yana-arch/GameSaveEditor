@@ -1,13 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { RpgData, RpgCharacter, InventoryItem, Skill } from '../types';
 import { EmptyEditorState } from './EmptyEditorState';
+import { GenericJsonEditor } from './GenericJsonEditor';
+import { setAtPath } from '../utils/jsonUtils';
 
 interface RpgEditorProps {
-  data: RpgData;
-  onChange: (data: RpgData) => void;
+  data: any; // Raw data from file
+  onChange: (data: any) => void;
 }
 
-type EditorTab = 'characters' | 'inventory' | 'skills';
+// A function to normalize incoming raw data into a consistent RpgData format for the editor UI
+const normalizeRpgData = (rawData: any): RpgData => {
+  if (!rawData) return {};
+
+  // First, check if the data is already in our clean, abstract format
+  if (rawData.characters || rawData.inventory || rawData.skills || rawData.gold !== undefined) {
+    return {
+      characters: Array.isArray(rawData.characters) ? rawData.characters : [],
+      inventory: Array.isArray(rawData.inventory) ? rawData.inventory : [],
+      skills: Array.isArray(rawData.skills) ? rawData.skills : [],
+      gold: typeof rawData.gold === 'number' ? rawData.gold : undefined,
+    };
+  }
+  
+  // If not, check for the common RPG Maker MV format
+  const characters: RpgCharacter[] = (rawData.$gameActors?._data ?? [])
+    .filter(Boolean) // RPG Maker actor arrays often have a null at index 0
+    .map((actor: any, index: number) => ({
+      id: actor._actorId ?? `actor_${index + 1}`,
+      name: actor._name ?? 'Unknown',
+      level: actor._level ?? 1,
+      hp: actor._hp ?? 0,
+      mp: actor._mp ?? 0,
+      // Map from _paramPlus bonus stats for simplicity
+      strength: actor._paramPlus?.[2] ?? 0, // ATK bonus
+      agility: actor._paramPlus?.[4] ?? 0,  // AGI bonus
+      intelligence: actor._paramPlus?.[6] ?? 0, // MAT bonus
+    }));
+
+  const inventory: InventoryItem[] = Object.entries(rawData.$gameParty?._items ?? {})
+    .map(([id, quantity]) => ({
+      id: parseInt(id, 10),
+      name: `Item ID: ${id}`, // Save files don't contain item names, so we use their ID
+      quantity: quantity as number,
+    }));
+    
+  const gold = rawData.$gameParty?._gold;
+  
+  // Skills are complex to map reliably from this format, so we'll omit them
+  const skills: Skill[] = [];
+
+  return { characters, inventory, skills, gold };
+};
+
+
+type EditorTab = 'characters' | 'inventory' | 'skills' | 'all_data';
 
 const StatInput: React.FC<{ label: string; value: number; onChange: (val: number) => void; }> = ({ label, value, onChange }) => (
     <div className="flex flex-col">
@@ -20,30 +67,91 @@ const StatInput: React.FC<{ label: string; value: number; onChange: (val: number
     </div>
 );
 
-export const RpgEditor: React.FC<RpgEditorProps> = ({ data, onChange }) => {
-  const [activeTab, setActiveTab] = useState<EditorTab>('characters');
+export const RpgEditor: React.FC<RpgEditorProps> = ({ data: rawData, onChange: onRawChange }) => {
+  const normalizedData = useMemo(() => normalizeRpgData(rawData), [rawData]);
+  const { characters = [], inventory = [], skills = [] } = normalizedData;
 
-  // Defensively handle potentially missing or malformed data properties
-  const characters = Array.isArray(data?.characters) ? data.characters : [];
-  const inventory = Array.isArray(data?.inventory) ? data.inventory : [];
-  const skills = Array.isArray(data?.skills) ? data.skills : [];
+  const hasCharacters = characters.length > 0;
+  const hasInventory = inventory.length > 0 || normalizedData.gold !== undefined;
+  const hasSkills = skills.length > 0;
+
+  const getInitialTab = (): EditorTab => {
+    if (hasCharacters) return 'characters';
+    if (hasInventory) return 'inventory';
+    if (hasSkills) return 'skills';
+    return 'all_data';
+  };
   
-  const isEmpty = characters.length === 0 && inventory.length === 0 && skills.length === 0 && data?.gold === undefined;
+  const [activeTab, setActiveTab] = useState<EditorTab>(getInitialTab());
 
-  if (isEmpty) {
+  useEffect(() => {
+    // If the active tab becomes invalid due to data changes, switch to a valid one.
+    if (activeTab === 'characters' && !hasCharacters) setActiveTab(getInitialTab());
+    if (activeTab === 'inventory' && !hasInventory) setActiveTab(getInitialTab());
+    if (activeTab === 'skills' && !hasSkills) setActiveTab(getInitialTab());
+  }, [hasCharacters, hasInventory, hasSkills, activeTab]);
+  
+  if (!rawData || Object.keys(rawData).length === 0) {
     return <EmptyEditorState />;
   }
+  
+  // This function takes changes to the normalized data and maps them back to the original raw data structure
+  const handleNormalizedDataChange = (updatedNormalizedData: RpgData) => {
+    // If the original format was our clean, abstract one, we can just merge the changes
+    if (rawData.characters || rawData.inventory || rawData.skills || rawData.gold !== undefined) {
+      onRawChange({ ...rawData, ...updatedNormalizedData });
+      return;
+    }
+    
+    // If the original format was RPG Maker, we need to map the changes back carefully
+    let updatedRawData = { ...rawData };
+
+    // Map characters back
+    if (updatedNormalizedData.characters && rawData.$gameActors?._data) {
+        updatedNormalizedData.characters.forEach(char => {
+            const actorIndex = rawData.$gameActors._data.findIndex((a: any) => a && a._actorId === char.id);
+            if (actorIndex > -1) {
+                const actorPath = ['$gameActors', '_data', actorIndex];
+                updatedRawData = setAtPath(updatedRawData, [...actorPath, '_name'], char.name);
+                updatedRawData = setAtPath(updatedRawData, [...actorPath, '_level'], char.level);
+                updatedRawData = setAtPath(updatedRawData, [...actorPath, '_hp'], char.hp);
+                updatedRawData = setAtPath(updatedRawData, [...actorPath, '_mp'], char.mp);
+                updatedRawData = setAtPath(updatedRawData, [...actorPath, '_paramPlus', 2], char.strength);
+                updatedRawData = setAtPath(updatedRawData, [...actorPath, '_paramPlus', 4], char.agility);
+                updatedRawData = setAtPath(updatedRawData, [...actorPath, '_paramPlus', 6], char.intelligence);
+            }
+        });
+    }
+
+    // Map inventory back
+    if (updatedNormalizedData.inventory && rawData.$gameParty?._items) {
+        const newItems = updatedNormalizedData.inventory.reduce((acc, item) => {
+            if (typeof item.id === 'number') {
+               acc[item.id] = item.quantity;
+            }
+            return acc;
+        }, {} as { [key: string]: number });
+        updatedRawData = setAtPath(updatedRawData, ['$gameParty', '_items'], newItems);
+    }
+    
+    // Map gold back
+    if (updatedNormalizedData.gold !== undefined && rawData.$gameParty) {
+        updatedRawData = setAtPath(updatedRawData, ['$gameParty', '_gold'], updatedNormalizedData.gold);
+    }
+
+    onRawChange(updatedRawData);
+  };
   
   const handleCharacterChange = <K extends keyof RpgCharacter,>(charIndex: number, field: K, value: RpgCharacter[K]) => {
     const newCharacters = [...characters];
     newCharacters[charIndex] = { ...newCharacters[charIndex], [field]: value };
-    onChange({ ...data, characters: newCharacters });
+    handleNormalizedDataChange({ ...normalizedData, characters: newCharacters });
   };
   
   const handleInventoryChange = (itemIndex: number, newQuantity: number) => {
     const newInventory = [...inventory];
     newInventory[itemIndex] = { ...newInventory[itemIndex], quantity: Math.max(0, newQuantity) };
-    onChange({ ...data, inventory: newInventory });
+    handleNormalizedDataChange({ ...normalizedData, inventory: newInventory });
   };
   
   const handleSkillToggle = (skillIndex: number) => {
@@ -51,20 +159,21 @@ export const RpgEditor: React.FC<RpgEditorProps> = ({ data, onChange }) => {
     const skillToUpdate = { ...newSkills[skillIndex] };
     skillToUpdate.learned = !skillToUpdate.learned;
     newSkills[skillIndex] = skillToUpdate;
-    onChange({ ...data, skills: newSkills });
+    handleNormalizedDataChange({ ...normalizedData, skills: newSkills });
   };
 
   return (
     <div>
       <div className="border-b border-gray-600 mb-6">
         <nav className="-mb-px flex space-x-6">
-          <button onClick={() => setActiveTab('characters')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'characters' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Characters</button>
-          <button onClick={() => setActiveTab('inventory')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'inventory' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Inventory</button>
-          <button onClick={() => setActiveTab('skills')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'skills' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Skills</button>
+          {hasCharacters && <button onClick={() => setActiveTab('characters')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'characters' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Characters</button>}
+          {hasInventory && <button onClick={() => setActiveTab('inventory')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'inventory' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Inventory</button>}
+          {hasSkills && <button onClick={() => setActiveTab('skills')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'skills' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>Skills</button>}
+          <button onClick={() => setActiveTab('all_data')} className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'all_data' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}>All Data</button>
         </nav>
       </div>
 
-      {activeTab === 'characters' && (
+      {activeTab === 'characters' && hasCharacters && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {characters.map((char, index) => (
             <div key={char.id} className="bg-gray-700/50 p-4 rounded-lg">
@@ -76,17 +185,23 @@ export const RpgEditor: React.FC<RpgEditorProps> = ({ data, onChange }) => {
                     <StatInput label="Level" value={char.level} onChange={v => handleCharacterChange(index, 'level', v)} />
                     <StatInput label="HP" value={char.hp} onChange={v => handleCharacterChange(index, 'hp', v)} />
                     <StatInput label="MP" value={char.mp} onChange={v => handleCharacterChange(index, 'mp', v)} />
-                    <StatInput label="Strength" value={char.strength} onChange={v => handleCharacterChange(index, 'strength', v)} />
-                    <StatInput label="Agility" value={char.agility} onChange={v => handleCharacterChange(index, 'agility', v)} />
-                    <StatInput label="Intelligence" value={char.intelligence} onChange={v => handleCharacterChange(index, 'intelligence', v)} />
+                    <StatInput label="STR Bonus" value={char.strength} onChange={v => handleCharacterChange(index, 'strength', v)} />
+                    <StatInput label="AGI Bonus" value={char.agility} onChange={v => handleCharacterChange(index, 'agility', v)} />
+                    <StatInput label="INT Bonus" value={char.intelligence} onChange={v => handleCharacterChange(index, 'intelligence', v)} />
                 </div>
             </div>
           ))}
         </div>
       )}
 
-      {activeTab === 'inventory' && (
+      {activeTab === 'inventory' && hasInventory && (
         <div>
+            {normalizedData.gold !== undefined && (
+                 <div className="mb-6 bg-gray-700/50 p-4 rounded-lg max-w-sm">
+                    <h3 className="text-lg font-semibold text-white mb-2">Gold</h3>
+                    <StatInput label="Current Gold" value={normalizedData.gold} onChange={v => handleNormalizedDataChange({ ...normalizedData, gold: v })} />
+                 </div>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {inventory.map((item, index) => (
                     <div key={item.id} className="bg-gray-700/50 p-3 rounded-lg flex flex-col justify-between">
@@ -100,7 +215,7 @@ export const RpgEditor: React.FC<RpgEditorProps> = ({ data, onChange }) => {
         </div>
       )}
       
-      {activeTab === 'skills' && (
+      {activeTab === 'skills' && hasSkills && (
         <div className="space-y-3">
           {skills.map((skill, index) => (
             <div key={skill.id} className="bg-gray-700/50 p-3 rounded-lg flex justify-between items-center">
@@ -115,6 +230,10 @@ export const RpgEditor: React.FC<RpgEditorProps> = ({ data, onChange }) => {
             </div>
           ))}
         </div>
+      )}
+      
+      {activeTab === 'all_data' && (
+        <GenericJsonEditor data={rawData} onChange={onRawChange} />
       )}
 
     </div>
