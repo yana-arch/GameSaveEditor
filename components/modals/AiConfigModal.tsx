@@ -71,6 +71,9 @@ export const AiConfigModal: React.FC<AiConfigModalProps> = ({ configToEdit, onCl
                         <select name="provider" id="provider" value={formData.provider} onChange={handleChange} className="w-full bg-gray-900/50 border border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
                            {PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
+                        {selectedProvider.notes && (
+                            <p className="text-xs text-gray-400 mt-2 bg-gray-900/50 p-2 rounded-md">{selectedProvider.notes}</p>
+                        )}
                     </div>
                      {selectedProvider.requiresBaseURL && (
                         <div>

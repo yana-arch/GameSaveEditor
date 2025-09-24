@@ -68,13 +68,19 @@ export interface VnData {
 
 // --- API Management System Types ---
 
-export type ProviderName = 'gemini' | 'custom'; // Expandable to 'openai', 'anthropic', etc.
+export type ProviderName = 'gemini' | 'openai' | 'openrouter' | 'custom';
 
 export interface AiConfig {
   id: string;             // uuid
   name: string;           // Display name for the configuration
   provider: ProviderName;   // The AI provider
-  baseURL?: string;       // Required only for 'custom' provider
+  baseURL?: string;       // Required only for 'custom' or other self-hosted providers
   apiKey?: string;        // The API key for the provider
   modelId: string;        // e.g., 'gemini-2.5-flash', 'gpt-4o-mini'
+}
+
+export interface GenerativeModel {
+  generateContent: (prompt: string) => Promise<{ text: string }>;
+  // streamGenerate is a potential future enhancement
+  // streamGenerate?: (prompt: string, onDelta: (delta: string) => void) => Promise<void>;
 }
