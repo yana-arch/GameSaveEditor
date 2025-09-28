@@ -1,21 +1,42 @@
-import { GoogleGenAI } from "@google/genai";
 import { AiConfig, GenerativeModel } from "../types";
 
 // --- Provider Implementations ---
 
+// Using REST API directly for better browser compatibility
 function createGeminiModel(config: AiConfig): GenerativeModel {
   if (!config.apiKey) {
     throw new Error("Gemini API key is missing in the configuration.");
   }
-  const ai = new GoogleGenAI({ apiKey: config.apiKey });
 
   return {
     async generateContent(prompt: string) {
-      const result = await ai.models.generateContent({
-        model: config.modelId,
-        contents: prompt,
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.modelId}:generateContent?key=${config.apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }]
+        }),
       });
-      return { text: result.text };
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`${response.status}: ${error.error?.message || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!text) {
+        throw new Error("No response text received from Gemini API");
+      }
+
+      return { text };
     },
   };
 }

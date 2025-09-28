@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { HomePage } from './components/HomePage';
 import { EditorLayout } from './components/EditorLayout';
 import { GenericJsonEditor } from './components/GenericJsonEditor';
-import { RpgEditor } from './components/RpgEditor';
+import { RpgEditor, normalizeRpgData } from './components/RpgEditor';
 import { VnEditor } from './components/VnEditor';
 import { FileParseError } from './components/FileParseError';
 import { GameType, SaveFileFormat } from './types';
@@ -68,13 +68,17 @@ const App: React.FC = () => {
     return <HomePage onFileAccepted={handleFileAccepted} />;
   }
 
+  // Only show AI chat for RPG games for now
+  const rpgData = gameSave.type === 'RPG' || gameSave.type === 'RPG_MAKER_MV' ? normalizeRpgData(gameSave.rawData) : undefined;
+
   return (
     <AiConfigProvider>
-        <EditorLayout 
+        <EditorLayout
           file={gameSave.file}
           type={gameSave.type}
           onGoBack={handleGoBack}
           onDownload={handleDownload}
+          rpgData={rpgData}
         >
           {renderEditor()}
         </EditorLayout>

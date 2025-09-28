@@ -17,8 +17,9 @@ export const AiConfigModal: React.FC<AiConfigModalProps> = ({ configToEdit, onCl
     apiKey: '',
     baseURL: '',
   });
-  
+
   const [selectedProvider, setSelectedProvider] = useState(PROVIDERS[0]);
+  const [showQuickSetup, setShowQuickSetup] = useState<boolean>(false);
 
   useEffect(() => {
     if (configToEdit) {
@@ -45,6 +46,39 @@ export const AiConfigModal: React.FC<AiConfigModalProps> = ({ configToEdit, onCl
     }
   };
 
+  const quickConfigs = [
+    {
+      provider: 'gemini' as ProviderName,
+      name: 'Google Gemini (Free)',
+      modelId: 'gemini-2.5-flash',
+      apiKey: '',
+      notes: 'Get an API key from Google AI Studio. Free tier available.'
+    },
+    {
+      provider: 'openai' as ProviderName,
+      name: 'OpenAI GPT',
+      modelId: 'gpt-4o-mini',
+      apiKey: '',
+      notes: 'Paid service. Get API key from platform.openai.com'
+    },
+    {
+      provider: 'openrouter' as ProviderName,
+      name: 'OpenRouter (Free)',
+      modelId: 'google/gemini-flash-1.5',
+      apiKey: '',
+      notes: 'Free tier with various models. Get API key from openrouter.ai'
+    }
+  ];
+
+  const handleQuickSetup = (quickConfig: typeof quickConfigs[0]) => {
+    setFormData({
+      ...quickConfig,
+      baseURL: ''
+    });
+    setSelectedProvider(PROVIDERS.find(p => p.id === quickConfig.provider) || PROVIDERS[0]);
+    setShowQuickSetup(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (configToEdit) {
@@ -61,6 +95,57 @@ export const AiConfigModal: React.FC<AiConfigModalProps> = ({ configToEdit, onCl
         <form onSubmit={handleSubmit}>
             <div className="p-6">
                 <h2 className="text-xl font-bold text-white mb-4">{configToEdit ? 'Edit' : 'Add'} AI Configuration</h2>
+
+                {configToEdit ? null : (
+                    <div className="mb-6">
+                        <div className="flex gap-2 mb-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowQuickSetup(false)}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${!showQuickSetup ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                            >
+                                Quick Setup
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowQuickSetup(true)}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${showQuickSetup ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                            >
+                                Advanced Setup
+                            </button>
+                        </div>
+
+                        {!showQuickSetup ? (
+                            <div className="space-y-3">
+                                <p className="text-sm text-gray-400 mb-4">Choose a popular AI provider to get started quickly:</p>
+                                {quickConfigs.map(config => (
+                                    <button
+                                        type="button"
+                                        key={config.provider}
+                                        onClick={() => handleQuickSetup(config)}
+                                        className="w-full p-4 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded-lg transition-colors text-left group"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-white font-semibold text-sm">{config.name}</h3>
+                                                <p className="text-gray-400 text-xs mt-1">{config.notes}</p>
+                                            </div>
+                                            <div className="text-gray-400 group-hover:text-white transition-colors">
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                                <p className="text-xs text-gray-500 mt-4">Need a different provider? Use Advanced Setup above.</p>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-400 mb-4">Configure your AI provider manually:</p>
+                        )}
+                    </div>
+                )}
+
                 <div className="space-y-4">
                      <div>
                         <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">Configuration Name</label>
